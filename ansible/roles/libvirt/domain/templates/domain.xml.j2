@@ -318,6 +318,81 @@
         {% endif %}
       {% endif %}
 
+      {% if device_item.interface is defined %}
+        <interface
+          {% if device_item.interface.type is defined %}
+            type='{{ device_item.interface.type }}'
+          {% endif %}
+        >
+        {% if device_item.interface.mac is defined %}
+          <mac
+            {% if device_item.interface.mac.address is defined %}
+              address='{{ device_item.interface.mac.address }}'
+            {% endif %}
+          />
+        {% endif %}
+        {% if device_item.interface.source is defined %}
+          <source
+            {% if device_item.interface.source.network is defined %}
+              network='{{ device_item.interface.source.network }}'
+            {% endif %}
+            {% if device_item.interface.source.bridge is defined %}
+              bridge='{{ device_item.interface.source.bridge }}'
+            {% endif %}
+          />
+        {% endif %}
+        {% if device_item.interface.target is defined %}
+          <target
+            {% if device_item.interface.target.dev is defined %}
+              dev='{{ device_item.interface.target.dev }}'
+            {% endif %}
+          />
+        {% endif %}
+        {% if device_item.interface.model is defined %}
+          <model
+            {% if device_item.interface.model.type is defined %}
+              type='{{ device_item.interface.model.type }}'
+            {% endif %}
+          />
+        {% endif %}
+        {% if device_item.interface.alias is defined %}
+          <alias
+            {% if device_item.interface.alias.name is defined %}
+              name='{{ device_item.interface.alias.name }}'
+            {% endif %}
+          />
+        {% endif %}
+        {% if device_item.interface.address is defined %}
+          <address
+            {% if device_item.interface.address.type is defined %}
+              type='{{ device_item.interface.address.type }}'
+            {% endif %}
+            {% if device_item.interface.address.controller is defined %}
+              controller='{{ device_item.interface.address.controller | string }}'
+            {% endif %}
+            {% if device_item.interface.address.bus is defined %}
+              bus='{{ device_item.interface.address.bus | string }}'
+            {% endif %}
+            {% if device_item.interface.address.target is defined %}
+              target='{{ device_item.interface.address.target | string }}'
+            {% endif %}
+            {% if device_item.interface.address.unit is defined %}
+              unit='{{ device_item.interface.address.unit | string }}'
+            {% endif %}
+            {% if device_item.interface.address.domain is defined %}
+              domain='{{ device_item.interface.address.domain | string }}'
+            {% endif %}
+            {% if device_item.interface.address.slot is defined %}
+              slot='{{ device_item.interface.address.slot | string }}'
+            {% endif %}
+            {% if device_item.interface.address.function is defined %}
+              function='{{ device_item.interface.address.function | string }}'
+            {% endif %}
+          />
+        {% endif %}
+        </interface>
+      {% endif %}
+
       {% if device_item.disk is defined %}
         <disk
           {% if device_item.disk.type is defined %}

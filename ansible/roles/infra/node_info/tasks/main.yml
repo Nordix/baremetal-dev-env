@@ -22,21 +22,21 @@
 - name: validate networks
   assert:
     that:
-      - "net_info.name is defined"
-  loop: "{{ node_info_args.networks }}"
+      - "node_net_info.name is defined"
+  loop: "{{ node_info_args.networks | default([]) }}"
   loop_control:
-    loop_var: net_info
+    loop_var: node_net_info
 
 - name: generate mac prefixes for each network
   set_fact:
     mac_prefix: "{{ mac_prefix | default([]) + [single_mac_prefix] }}"
   vars:
-    single_mac_prefix: "{{ net_info.mac_prefix
+    single_mac_prefix: "{{ node_net_info.mac_prefix
       | default(('52:54:' + ('%02X' % (net_index | int)) + ':aa:bb:')) }}"
   loop: "{{ node_info_args.networks }}"
   loop_control:
     index_var: net_index
-    loop_var: net_info
+    loop_var: node_net_info
 
 - name: Initialize node_info list
   set_fact:

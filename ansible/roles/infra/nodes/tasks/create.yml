@@ -39,7 +39,7 @@
     node_info_args:
       node_count: "{{ nodes_args.node_count }}"
       node_name_prefix: "{{ nodes_args.node_name_prefix }}"
-      network_count: "{{ nodes_args.networks | length }}"
+      networks: "{{ nodes_args.networks }}"
 
 - name:
   include_role:
@@ -52,6 +52,164 @@
       capacity: "{{ nodes_args.node_vol_size | int }}"
       format: "qcow2"
       recreate: true
+  loop: "{{ range(0, (nodes_args.node_count | int), 1) | list }}"
+  loop_control:
+    loop_var: node_index
+
+- name: generate domain net devices
+  set_fact:
+    gen_net_devices: "{{ gen_net_devices | default([]) + [ single_dom_net_dev] }}"
+  vars:
+    single_dom_net_dev:
+      interface:
+        type: network
+        source:
+          network: "{{ dom_net_dev_item.name }}"
+          bridge: "{{ dom_net_dev_item.name }}"
+        # mac:
+        #   address: "{{ node_info[node_index | int]. }}"
+        target:
+          dev: "vnet{{ (dom_net_dev_index | int) + 1 }}"
+        model:
+          type: virtio
+        alias:
+          name: "net{{ (dom_net_dev_index | int) + 1 }}"
+        address:
+          type: pci
+          domain: '0x0000'
+          bus: '0x00'
+          function: '0x0'
+          slot: "0x{{ '%02X' % (10 + (dom_net_dev_index | int)) }}"
+  loop: "{{ nodes_args.networks }}"
+  loop_control:
+    loop_var: dom_net_dev_item
+    index_var: dom_net_dev_index
+
+# - name: generate net devices for all nodes
+#   set_fact:
+#     dom_net_devices: "{{ dom_net_devices | default([]) + [ single_dom_net_dev] }}"
+#   vars:
+#     single_dom_net_dev: "{{ }}"
+
+- name: Generate domain args
+  set_fact:
+    dom_dev_specs: "{{ dom_dev_specs | default([]) + [ single_dom_dev_spec ] }}"
+  vars:
+    single_dom_dev_spec:
+      - emulator: /usr/bin/kvm-spice
+      - disk:
+          type: file
+          device: cdrom
+          driver:
+            name: qemu
+            type: raw
+          source:
+            file: "/var/lib/libvirt/images/Porteus-MATE-v4-0-x86_64-iso-4a58b21f-1194-46b4-ac8a-d952b058402b.img"
+          target:
+            dev: hdc
+            bus: ide
+          readonly: true
+          address:
+            type: drive
+            controller: "0"
+            bus: "0"
+            target: 0
+            unit: "1"
+      - disk:
+          type: volume
+          device: disk
+          driver:
+            name: qemu
+            type: qcow2
+          source:
+            pool: "{{ nodes_args.pool_name }}"
+            volume: "{{ node_info[node_index | int].name }}_vol"
+          target:
+            dev: vda
+            bus: virtio
+          address:
+            type: pci
+            domain: "0x0000"
+            bus: "0x00"
+            slot: "0x08"
+            function: "0x0"
+      - controller:
+          type: scsi
+          index: "0"
+          model: virtio-scsi
+          address:
+            type: pci
+            domain: "0x0000"
+            bus: "0x00"
+            slot: "0x05"
+            function: "0x0"
+      - controller:
+          type: usb
+          index: "0"
+          model: piix3-uhci
+          address:
+            type: pci
+            domain: "0x0000"
+            bus: "0x00"
+            slot: "0x01"
+            function: "0x2"
+      - controller:
+          type: pci
+          index: "0"
+          model: pci-root
+      - controller:
+          type: ide
+          index: "0"
+          address:
+            type: pci
+            domain: "0x0000"
+            bus: "0x00"
+            slot: "0x01"
+            function: "0x1"
+      - serial:
+          type: pty
+          target:
+            type: isa-serial
+            port: "0"
+            model:
+              name: isa-serial
+      - console:
+          type: pty
+          target:
+            type: serial
+            port: "0"
+      - input:
+          type: mouse
+          bus: ps2
+      - input:
+          type: keyboard
+          bus: ps2
+      - graphics:
+          type: vnc
+          port: "-1"
+          autoport: "yes"
+          listen:
+            type: address
+      - video:
+          model:
+            type: cirrus
+            vram: 16384
+            heads: "1"
+            primary: "yes"
+          address:
+            type: pci
+            domain: "0x0000"
+            bus: "0x00"
+            slot: "0x02"
+            function: "0x0"
+      - membaloon:
+          model: virtio
+          address:
+            type: pci
+            domain: "0x0000"
+            bus: "0x00"
+            slot: "0x06"
+            function: "0x0"
   loop: "{{ range(0, (nodes_args.node_count | int), 1) | list }}"
   loop_control:
     loop_var: node_index
@@ -96,122 +254,7 @@
         on_poweroff: destroy
         on_reboot: restart
         on_crash: restart
-        devices:
-          - emulator: /usr/bin/kvm-spice
-          - disk:
-              type: file
-              device: cdrom
-              driver:
-                name: qemu
-                type: raw
-              source:
-                file: "/var/lib/libvirt/images/Porteus-MATE-v4-0-x86_64-iso-4a58b21f-1194-46b4-ac8a-d952b058402b.img"
-              target:
-                dev: hdc
-                bus: ide
-              readonly: true
-              address:
-                type: drive
-                controller: "0"
-                bus: "0"
-                target: 0
-                unit: "1"
-          - disk:
-              type: volume
-              device: disk
-              driver:
-                name: qemu
-                type: qcow2
-              source:
-                pool: "{{ nodes_args.pool_name }}"
-                volume: "{{ node_info[node_index | int].name }}_vol"
-              target:
-                dev: vda
-                bus: virtio
-              address:
-                type: pci
-                domain: "0x0000"
-                bus: "0x00"
-                slot: "0x0A"
-                function: "0x0"
-          - controller:
-              type: scsi
-              index: "0"
-              model: virtio-scsi
-              address:
-                type: pci
-                domain: "0x0000"
-                bus: "0x00"
-                slot: "0x05"
-                function: "0x0"
-          - controller:
-              type: usb
-              index: "0"
-              model: piix3-uhci
-              address:
-                type: pci
-                domain: "0x0000"
-                bus: "0x00"
-                slot: "0x01"
-                function: "0x2"
-          - controller:
-              type: pci
-              index: "0"
-              model: pci-root
-          - controller:
-              type: ide
-              index: "0"
-              address:
-                type: pci
-                domain: "0x0000"
-                bus: "0x00"
-                slot: "0x01"
-                function: "0x1"
-          - serial:
-              type: pty
-              target:
-                type: isa-serial
-                port: "0"
-                model:
-                  name: isa-serial
-          - console:
-              type: pty
-              target:
-                type: serial
-                port: "0"
-          - input:
-              type: mouse
-              bus: ps2
-          - input:
-              type: keyboard
-              bus: ps2
-          - graphics:
-              type: vnc
-              port: "-1"
-              autoport: "yes"
-              listen:
-                type: address
-          - video:
-              model:
-                type: cirrus
-                vram: 16384
-                heads: "1"
-                primary: "yes"
-              address:
-                type: pci
-                domain: "0x0000"
-                bus: "0x00"
-                slot: "0x02"
-                function: "0x0"
-          - membaloon:
-              model: virtio
-              address:
-                type: pci
-                domain: "0x0000"
-                bus: "0x00"
-                slot: "0x06"
-                function: "0x0"
-
+        devices: "{{ dom_dev_specs[node_index | int] + dom_net_devices }}"
   loop: "{{ range(0, (nodes_args.node_count | int), 1) | list }}"
   loop_control:
     loop_var: node_index
