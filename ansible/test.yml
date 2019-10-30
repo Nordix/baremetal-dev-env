@@ -1,0 +1,249 @@
+- hosts: localhost
+  tasks:
+  - include_role:
+      name: "infra/setup"
+    vars:
+      setup_action: 'create'
+      # nodes_args:
+      #   node_count: 3
+      #   node_memory: 2
+      #   node_vcpu_count: 1
+      #   node_name_prefix: "bm_node_"
+      #   pool_name: default
+      #   node_vol_size: 2
+      #   networks:
+      #     - name: provisioning
+      #       #mac_prefix: "52:54:00:32:c9:"
+      #     - name: bm_net
+      #       #mac_prefix: "52:54:aa:bb:cc:"
+      #     - name: bm_tarffic_net
+      #       mac_prefix: "52:54:aa:bb:dd:"
+
+  - debug: var=node_info
+
+  # - include_role:
+  #     name: "libvirt/pool"
+  #   vars:
+  #     pool_action: "create"
+  #     pool_args:
+  #       name: my_pool
+  #       target: /opt/metal3/images
+  #       recreate: false
+  #       persistent: true
+  #       autostart: true
+
+  # - include_role:
+  #     name: "libvirt/vol"
+  #   vars:
+  #     vol_action: "create"
+  #     vol_args:
+  #       name: sample_vol
+  #       pool: my_pool
+  #       capacity: 2G
+
+  # - include_role:
+  #     name: "libvirt/network"
+  #   vars:
+  #     network_action: "create"
+  #     network_args:
+  #       name: bm_prov_net
+  #       recreate: true
+  #       persistent: true
+  #       autostart: true
+  #       yaml:
+  #         forward:
+  #           mode: bridge
+
+  # - include_role:
+  #     name: "libvirt/network"
+  #   vars:
+  #     network_action: "create"
+  #     network_args:
+  #       name: bm_net_0
+  #       recreate: true
+  #       persistent: true
+  #       autostart: true
+  #       yaml:
+  #         forward:
+  #           mode: nat
+  #           nat:
+  #             port:
+  #               - start: 1024
+  #                 end: 65535
+  #         bridge:
+  #           name: 'bm_net_0'
+  #           stp: 'on'
+  #           delay: '0'
+  #         domain:
+  #           name: 'tests.baremetal.net'
+  #           localOnly: 'yes'
+  #         dns:
+  #           - forwarder:
+  #               domain: 'apps.tests.baremetal.net'
+  #               addr: '127.0.0.1'
+  #           - forwarder:
+  #               domain: 'services.tests.baremetal.net'
+  #               addr: '127.0.0.1'
+  #         ip:
+  #           address: "192.168.111.1"
+  #           netmask: "255.255.255.0"
+  #           dhcp:
+  #             - range:
+  #                 start:  '192.168.111.20'
+  #                 end: '192.168.111.100'
+  #
+  # - include_role:
+  #     name: "libvirt/domain"
+  #   vars:
+  #     domain_action: "create"
+  #     domain_args:
+  #       name: worker_10
+  #       recreate: true
+  #       persistent: true
+  #       autostart: true
+  #       yaml:
+  #         memory:
+  #           unit: GB
+  #           value: 2
+  #         currentMemory:
+  #           unit: GB
+  #           value: 2
+  #         vcpu:
+  #           placement: static
+  #           value: "1"
+  #         os:
+  #           type:
+  #             arch: "x86_64"
+  #             machine: "pc-i440fx-bionic"
+  #             value: "hvm"
+  #           boot:
+  #             dev: cdrom
+  #           bootmenu:
+  #             enable: no
+  #         features:
+  #           - acpi
+  #           - apic
+  #           - pae
+  #         cpu:
+  #           mode: host-passthrough
+  #           check: none
+  #         clock:
+  #           offset: utc
+  #         on_poweroff: destroy
+  #         on_reboot: restart
+  #         on_crash: restart
+  #         devices:
+  #           - emulator: /usr/bin/kvm-spice
+  #           - disk:
+  #               type: file
+  #               device: cdrom
+  #               driver:
+  #                 name: qemu
+  #                 type: raw
+  #               source:
+  #                 file: "/var/lib/libvirt/images/Porteus-MATE-v4-0-x86_64-iso-4a58b21f-1194-46b4-ac8a-d952b058402b.img"
+  #               target:
+  #                 dev: hdc
+  #                 bus: ide
+  #               readonly: true
+  #               address:
+  #                 type: drive
+  #                 controller: "0"
+  #                 bus: "0"
+  #                 target: 0
+  #                 unit: "1"
+  #           # - disk:
+  #           #     type: volume
+  #           #     device: disk
+  #           #     driver:
+  #           #       name: qemu
+  #           #       type: qcow2
+  #           #     source:
+  #           #       pool: default
+  #           #       volume: bm_host_1
+  #           #     target:
+  #           #       dev: vda
+  #           #       bus: virtio
+  #           #     address:
+  #           #       type: pci
+  #           #       domain: "0x0000"
+  #           #       bus: "0x00"
+  #           #       slot: "0x0A"
+  #           #       function: "0x0"
+  #           - controller:
+  #               type: scsi
+  #               index: "0"
+  #               model: virtio-scsi
+  #               address:
+  #                 type: pci
+  #                 domain: "0x0000"
+  #                 bus: "0x00"
+  #                 slot: "0x05"
+  #                 function: "0x0"
+  #           - controller:
+  #               type: usb
+  #               index: "0"
+  #               model: piix3-uhci
+  #               address:
+  #                 type: pci
+  #                 domain: "0x0000"
+  #                 bus: "0x00"
+  #                 slot: "0x01"
+  #                 function: "0x2"
+  #           - controller:
+  #               type: pci
+  #               index: "0"
+  #               model: pci-root
+  #           - controller:
+  #               type: ide
+  #               index: "0"
+  #               address:
+  #                 type: pci
+  #                 domain: "0x0000"
+  #                 bus: "0x00"
+  #                 slot: "0x01"
+  #                 function: "0x1"
+  #           - serial:
+  #               type: pty
+  #               target:
+  #                 type: isa-serial
+  #                 port: "0"
+  #                 model:
+  #                   name: isa-serial
+  #           - console:
+  #               type: pty
+  #               target:
+  #                 type: serial
+  #                 port: "0"
+  #           - input:
+  #               type: mouse
+  #               bus: ps2
+  #           - input:
+  #               type: keyboard
+  #               bus: ps2
+  #           - graphics:
+  #               type: vnc
+  #               port: "-1"
+  #               autoport: "yes"
+  #               listen:
+  #                 type: address
+  #           - video:
+  #               model:
+  #                 type: cirrus
+  #                 vram: 16384
+  #                 heads: "1"
+  #                 primary: "yes"
+  #               address:
+  #                 type: pci
+  #                 domain: "0x0000"
+  #                 bus: "0x00"
+  #                 slot: "0x02"
+  #                 function: "0x0"
+  #           - membaloon:
+  #               model: virtio
+  #               address:
+  #                 type: pci
+  #                 domain: "0x0000"
+  #                 bus: "0x00"
+  #                 slot: "0x06"
+  #                 function: "0x0"

@@ -1,0 +1,77 @@
+# Description:
+#   Creates a libvirt storage pool.
+# 
+# Inputs:
+#   pool_action: "create"
+#   pool_args:
+#     name: <name of pool>
+#     target: <path for pool storage>
+#     persistent: <boolean | default: false>
+#     autostart: <boolean | default: false>
+#     recreate: <boolean: delete pool if already exists | default: false>
+
+- name: Validate input
+  assert:
+    that:
+      - "pool_args is defined"
+      - "pool_args.name is defined"
+      - "pool_args.target is defined"
+
+- name: check if pool exists
+  command: "virsh pool-info {{ pool_args.name }}"
+  register: pool_info
+  failed_when: false
+
+- name: Stop pool
+  command: "virsh pool-destroy {{ pool_args.name }}"
+  register: pool_destroy
+  when: pool_args.recreate | default(false) and pool_info.rc == 0
+
+- name: check if pool still exists
+  command: "virsh pool-info {{ pool_args.name }}"
+  register: pool_info
+  failed_when: false
+
+- name: delete pool
+  command: "virsh pool-delete {{ pool_args.name }}"
+  register: pool_delete
+  when: pool_args.recreate | default(false) and pool_info.rc == 0
+
+- name: Create XML File Name
+  set_fact:
+    pool_xml: "/tmp/{{ pool_args.name }}.xml"
+    create_action: >-
+      {{
+        'define'
+         if (pool_args.persistent | default(false))
+         else 'create'
+      }}
+
+- name: check if pool still exists
+  command: "virsh pool-info {{ pool_args.name }}"
+  register: pool_info
+  failed_when: false
+
+- name: Create Pool
+  command: >-
+    virsh pool-{{ create_action }}-as {{ pool_args.name }} \
+    dir --target {{ pool_args.target }}
+  register: pool_create
+  when: pool_info.rc != 0
+
+- name: check if pool is inactive
+  shell: "virsh pool-info {{ pool_args.name }} | grep inactive"
+  register: pool_inactive
+  failed_when: false
+
+- name: Start Pool
+  command: >-
+    virsh pool-start {{ pool_args.name }}
+  register: pool_create
+  when: pool_args.persistent | default(false) and pool_inactive.rc == 0
+
+- name: Set Pool autostart
+  command: >-
+    virsh pool-autostart {{ pool_args.name }} \
+    {{ '--disable' if (pool_args.autostart | default(false)) else ''}}
+  when: pool_args.persistent | default(false) and pool_info.rc != 0

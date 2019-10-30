@@ -1,0 +1,51 @@
+# Description:
+#   Creates a libvirt volume.
+#
+# Inputs:
+#   vol_action: "create"
+#   vol_args:
+#     name: <name of volume>
+#     pool: <name of storage pool>
+#     capacity: <capacity is libvirt acceptable format>
+#     format: <volume format | default(qcow2)>
+#     recreate: <boolean: delete volume if exists: default(false)>
+
+- name: Validate input
+  assert:
+    that:
+      - "vol_args is defined"
+      - "vol_args.name is defined"
+      - "vol_args.pool is defined"
+      - "vol_args.capacity is defined"
+
+- name: check if vol exists
+  command: "virsh vol-info {{ vol_args.name }} {{ vol_args.pool }}"
+  register: vol_info
+  failed_when: false
+
+- name: Delete volume
+  command: "virsh vol-delete {{ vol_args.name }} --pool {{ vol_args.pool }}"
+  register: vol_delete
+  when: vol_args.recreate | default(false) and vol_info.rc == 0
+
+- name: check if vol still exists
+  command: "virsh vol-info {{ vol_args.name }}"
+  register: vol_info
+  failed_when: false
+
+- name: create volume
+  command: >-
+    virsh vol-create-as \
+    {{ vol_args.pool }} \
+    {{ vol_args.name }} \
+    {{ vol_args.capacity }} \
+    --format {{ vol_args.format | default('qcow2') }}
+  register: vol_create
+  when: vol_info.rc != 0
+
+
+
+
+
+
+

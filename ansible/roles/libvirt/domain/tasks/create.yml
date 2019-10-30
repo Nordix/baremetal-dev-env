@@ -1,0 +1,124 @@
+# Description:
+#   Creates a libvirt domain. domain_args.yaml are
+#   exactly converted to XML from YAML so there
+#   is no validation whether the arguments are
+#   correct or not. Caller must ensure that yaml
+#   is formulated correctly.
+#
+# Inputs:
+#   domain_action: "create"
+#   domain_args:
+#     name: <name of domain>
+#     persistent: <boolean>
+#     autostart: <boolean>
+#     recreate: <boolean>
+#     xml: <xml file path: this field is mutually exclusive with yaml field>
+#     yaml:
+
+
+- name: Validate input
+  assert:
+    that:
+      - "domain_args is defined"
+      - "domain_args.name is defined"
+      - "domain_args.xml is defined or domain_args.yaml is defined"
+
+- name: Check YAML is not defined with XML
+  assert:
+    that:
+      - "domain_args.xml is not defined"
+  when: domain_args.yaml is defined
+
+- name: Check XML is not defined with YAML
+  assert:
+    that:
+      - "domain_args.yaml is not defined"
+  when: domain_args.xml is defined
+
+- name: Set XML path
+  set_fact:
+    dom_xml: >-
+      {{
+        domain_args.xml
+        | default("/tmp/dom_" + domain_args.name + ".xml")
+      }}
+
+- name: Create yaml for template
+  set_fact:
+    dom_yaml: >-
+      {{
+        domain_args.yaml
+        | combine({'name': domain_args.name}, recursive=True)
+      }}
+  when: domain_args.yaml is defined
+
+- name: Generate Domain XML
+  template:
+    src: "domain.xml.j2"
+    dest: "{{ dom_xml }}"
+  when: domain_args.yaml is defined
+
+- name: Read XML to prettify
+  xml:
+    path: "{{ dom_xml }}"
+    pretty_print: true
+  register: pretty_xml
+  when: domain_args.yaml is defined
+
+- name: check if domain is active
+  shell: "virsh dominfo {{ domain_args.name }} | grep -i state | grep -i 'running'"
+  register: dom_active
+  failed_when: false
+
+- name: Stop domain
+  command: "virsh destroy {{ domain_args.name }}"
+  register: dom_destroy
+  when: domain_args.recreate | default(false) and dom_active.rc == 0
+
+- name: check if domain still exists
+  command: "virsh dominfo {{ domain_args.name }}"
+  register: dom_info
+  failed_when: false
+
+- name: Undefine Domain
+  command: "virsh undefine {{ domain_args.name }}"
+  register: dom_undefine
+  when: domain_args.recreate | default(false) and dom_info.rc == 0
+
+- name: check if domain still exists
+  command: "virsh dominfo {{ domain_args.name }}"
+  register: dom_info
+  failed_when: false
+
+- name: Create domain
+  command: "virsh create {{ dom_xml }}"
+  register: dom_create
+  when: dom_info.rc != 0 and not (domain_args.persistent | default(false))
+
+- name: Define domain
+  command: "virsh define {{ dom_xml }}"
+  register: dom_create
+  when: dom_info.rc != 0 and (domain_args.persistent | default(false))
+
+- name: check if domain is active
+  shell: "virsh dominfo {{ domain_args.name }} | grep -i state | grep -i 'running'"
+  register: dom_active
+  failed_when: false
+
+- name: Start domain
+  command: "virsh start {{ domain_args.name }}"
+  register: dom_create
+  when: dom_active.rc != 0 and (domain_args.persistent | default(false))
+
+- name: AutoStart domain
+  command: "virsh autostart {{ domain_args.name }}"
+  register: dom_autgsostart
+  when: (domain_args.persistent | default(false)) and (domain_args.autostart | default(false))
+
+- name: Disable AutoStart domain
+  command: "virsh autostart {{ domain_args.name }} --disable"
+  register: dom_autgsostart
+  when: (domain_args.persistent | default(false)) and not (domain_args.autostart | default(false))
+
+
+

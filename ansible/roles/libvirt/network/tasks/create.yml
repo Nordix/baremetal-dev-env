@@ -1,0 +1,142 @@
+# Description:
+#   Creates a libvirt network. network_args are
+#   exactly converted to XML from YAML so there
+#   is no validation whether the arguments are
+#   correct or not. Caller must ensure that yaml
+#   is formulated correctly.
+#
+# Inputs:
+#   network_action: "create"
+#   network_args:
+#     name: <name of network>
+#     persistent: <boolean>
+#     autostart: <boolean>
+#     recreate: <boolean>
+#     xml: <xml file path: this field is mutually exclusive with yaml field>
+#     yaml:
+#       forward:
+#         mode:
+#         nat:
+#           port:
+#             - start:
+#               end:
+#       bridge:
+#         name:
+#         stp:
+#         delay:
+#       domain:
+#         name:
+#         localOnly:
+#       dns:
+#         forwarder:
+#           domain:
+#           addr:
+#       mac:
+#         address:
+#       ip:
+#         address:
+#         netmask:
+#         dhcp:
+#           - range:
+#               start:
+#               end:
+
+- name: Validate input
+  assert:
+    that:
+      - "network_args is defined"
+      - "network_args.name is defined"
+      - "network_args.xml is defined or network_args.yaml is defined"
+
+- name: Check YAML is not defined with XML
+  assert:
+    that:
+      - "network_args.xml is not defined"
+  when: network_args.yaml is defined
+
+- name: Check XML is not defined with YAML
+  assert:
+    that:
+      - "network_args.yaml is not defined"
+  when: network_args.xml is defined
+
+- name: Set XML path
+  set_fact:
+    net_xml: >-
+      {{
+        network_args.xml
+        | default("/tmp/net_" + network_args.name + ".xml")
+      }}
+
+- name: Create yaml for template
+  set_fact:
+    net_yaml: >-
+      {{
+        network_args.yaml
+        | combine({'name': network_args.name}, recursive=True)
+      }}
+
+- name: Generate network XML
+  template:
+    src: "network.xml.j2"
+    dest: "{{ net_xml }}"
+  when: network_args.yaml is defined
+
+- name: Read XML to prettify
+  xml:
+    path: "{{ net_xml }}"
+    pretty_print: true
+  register: pretty_xml
+  when: network_args.yaml is defined
+
+- name: check if net exists
+  command: "virsh net-info {{ network_args.name }}"
+  register: net_info
+  failed_when: false
+
+- name: Stop network
+  command: "virsh net-destroy {{ network_args.name }}"
+  register: net_destroy
+  when: network_args.recreate | default(false) and net_info.rc == 0
+
+- name: check if net still exists
+  command: "virsh net-info {{ network_args.name }}"
+  register: net_info
+  failed_when: false
+
+- name: Undefine network
+  command: "virsh net-undefine {{ network_args.name }}"
+  register: net_undefine
+  when: network_args.recreate | default(false) and net_info.rc == 0
+
+- name: check if net still exists
+  command: "virsh net-info {{ network_args.name }}"
+  register: net_info
+  failed_when: false
+
+- name: Create network
+  command: "virsh net-create {{ net_xml }}"
+  register: net_create
+  when: net_info.rc != 0 and not (network_args.persistent | default(false))
+
+- name: Define network
+  command: "virsh net-define {{ net_xml }}"
+  register: net_create
+  when: net_info.rc != 0 and (network_args.persistent | default(false))
+
+- name: check if net is active
+  shell: "virsh net-info {{ network_args.name }} | grep -i active | grep -i yes"
+  register: net_active
+  failed_when: false
+
+- name: Start network
+  command: "virsh net-start {{ network_args.name }}"
+  register: net_create
+  when: net_active.rc != 0 and (network_args.persistent | default(false))
+
+- name: AutoStart network
+  command: "virsh net-autostart {{ network_args.name }}"
+  register: net_autostart
+  when: (network_args.persistent | default(false)) and (network_args.autostart | default(false))
+
+

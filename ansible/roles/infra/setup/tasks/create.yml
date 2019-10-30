@@ -1,0 +1,112 @@
+# Description:
+#   Setup libvirt infra for domains like pools
+#   network etc. and then start domains
+# Inputs:
+#   setup_action: "create"
+#   setup_args:
+#     pool_name: <storage pool name | default('default')>
+#     pool_path: <path for pool | default('/var/lib/libvirt/images')>
+#     node_count: <number of nodes | default(3) >
+#     node_name_prefix: <prefix for the node name | default('bm_node_')>
+#     node_memory: <node memory in GBs | default(2) >
+#     node_vol_size: <node volume size in GBs | default(4) >
+#     node_vcpu_count: <number of vcpus for each node | default(2) >
+#     additional_nets: [ list of additional network details ]
+
+- name: create storage pool
+  include_role:
+    name: "libvirt/pool"
+  vars:
+    pool_action: "create"
+    pool_args:
+      name: "{{ setup_args.pool_name | default('default')}}"
+      target: "{{ setup_args.pool_path | default('/var/lib/libvirt/images') }}"
+      recreate: false
+      persistent: true
+      autostart: true
+
+- name: Generate required network details
+  set_fact:
+    req_infra_networks:
+      - name: bm_prov_net
+        recreate: true
+        persistent: true
+        autostart: true
+        yaml:
+          forward:
+            mode: nat
+            nat:
+              port:
+                - start: 1024
+                  end: 65535
+          bridge:
+            name: 'bm_prov_net'
+            stp: 'on'
+            delay: '0'
+          ip:
+            address: "172.22.0.1"
+            netmask: "255.255.255.0"
+      - name: bm_net_0
+        recreate: true
+        persistent: true
+        autostart: true
+        yaml:
+          forward:
+            mode: nat
+            nat:
+              port:
+                - start: 1024
+                  end: 65535
+          bridge:
+            name: 'bm_net_0'
+            stp: 'on'
+            delay: '0'
+          domain:
+            name: 'tests.baremetal.net'
+            localOnly: 'yes'
+          dns:
+            - forwarder:
+                domain: 'apps.tests.baremetal.net'
+                addr: '127.0.0.1'
+            - forwarder:
+                domain: 'services.tests.baremetal.net'
+                addr: '127.0.0.1'
+          ip:
+            address: "192.168.111.1"
+            netmask: "255.255.255.0"
+            dhcp:
+              - range:
+                  start:  '192.168.111.20'
+                  end: '192.168.111.100'
+
+- name: Merge network details
+  set_fact:
+    infra_networks: "{{ req_infra_networks
+      + (setup_args.additional_nets | default([])) }}"
+
+- name: Create networks
+  include_role:
+    name: "libvirt/network"
+  vars:
+    network_action: "create"
+    network_args: "{{ infra_net_info }}"
+  loop: "{{ infra_networks }}"
+  loop_control:
+    loop_var: infra_net_info
+
+- name: Create nodes
+  include_role:
+    name: "infra/nodes"
+  vars:
+    nodes_action: 'create'
+    nodes_args:
+      node_count: "{{ setup_args.node_count | default(3) }}"
+      node_memory: "{{ setup_args.node_memory | default(2) }}"
+      node_vcpu_count: "{{ setup_args.node_vcpu_count | default(2) }}"
+      node_name_prefix: "{{ setup_args.node_name_prefix | default('bm_node_') }}"
+      pool_name: "{{ setup_args.pool_name | default('default') }}"
+      node_vol_size: "{{ setup_args.node_vol_size | default(4) }}"
+      networks:
+        - name: provisioning
+        - name: bm_net
+        - name: bm_tarffic_net

@@ -1,0 +1,395 @@
+<domain type='kvm'>
+  <name>{{ dom_yaml.name }}</name>
+  {% if dom_yaml.memory is defined %}
+  <memory
+    {% if dom_yaml.memory.unit is defined %}
+      unit='{{ dom_yaml.memory.unit }}'
+    {% endif %}
+  >
+  {%- if dom_yaml.memory.value is defined -%}
+    {{ dom_yaml.memory.value }}
+  {%- endif -%}
+  </memory>
+  {% endif %}
+
+  {% if dom_yaml.currentMemory is defined %}
+  <currentMemory
+    {% if dom_yaml.currentMemory.unit is defined %}
+      unit='{{ dom_yaml.currentMemory.unit }}'
+    {% endif %}
+  >
+  {%- if dom_yaml.currentMemory.value is defined -%}
+    {{ dom_yaml.currentMemory.value }}
+  {%- endif -%}
+  </currentMemory>
+  {% endif %}
+
+
+  {% if dom_yaml.os is defined %}
+  <os>
+    {% if dom_yaml.os.type is defined %}
+      <type
+        {% if dom_yaml.os.type.arch is defined %}
+          arch='{{ dom_yaml.os.type.arch }}'
+        {% endif %}
+        {% if dom_yaml.os.type.machine is defined %}
+          machine='{{ dom_yaml.os.type.machine }}'
+        {% endif %}
+      >
+      {%- if dom_yaml.os.type.value is defined -%}
+        {{ dom_yaml.os.type.value }}
+      {%- endif -%}
+      </type>
+    {% endif %}
+
+    {% if dom_yaml.os.boot is defined %}
+      <boot
+        {% if dom_yaml.os.boot.dev is defined %}
+          dev='{{ dom_yaml.os.boot.dev }}'
+        {% endif %}
+      />
+    {% endif %}
+
+    {% if dom_yaml.os.bootmenu is defined %}
+      <bootmenu
+        {% if dom_yaml.os.bootmenu.enable is defined %}
+          device='{{ dom_yaml.os.bootmenu.enable }}'
+        {% endif %}
+      />
+    {% endif %}
+  </os>
+  {% endif %}
+
+  {% if dom_yaml.features is defined %}
+  <features>
+    {% if dom_yaml.features | list %}
+    {% for feature_item in dom_yaml.features %}
+      <{{ feature_item }}/>
+    {% endfor %}
+    {% endif %}
+  </features>
+  {% endif %}
+
+  {% if dom_yaml.cpu is defined %}
+    <cpu
+      {% if dom_yaml.cpu.mode is defined %}
+        mode='{{ dom_yaml.cpu.mode }}'
+      {% endif %}
+      {% if dom_yaml.cpu.check is defined %}
+        check='{{ dom_yaml.cpu.check }}'
+      {% endif %}
+    />
+  {% endif %}
+
+  {% if dom_yaml.clock is defined %}
+    <clock
+      {% if dom_yaml.clock.offset is defined %}
+        offset='{{ dom_yaml.clock.offset }}'
+      {% endif %}
+    />
+  {% endif %}
+
+  {% if dom_yaml.on_poweroff is defined %}
+    <on_poweroff>{{ dom_yaml.on_poweroff }}</on_poweroff>
+  {% endif %}
+
+  {% if dom_yaml.on_reboot is defined %}
+    <on_reboot>{{ dom_yaml.on_reboot }}</on_reboot>
+  {% endif %}
+
+  {% if dom_yaml.on_crash is defined %}
+    <on_crash>{{ dom_yaml.on_crash }}</on_crash>
+  {% endif %}
+
+  {% if dom_yaml.devices is defined %}
+    <devices>
+    {% if dom_yaml.devices | list %}
+    {% for device_item in dom_yaml.devices %}
+
+      {% if device_item.emulator is defined %}
+        <emulator>{{ device_item.emulator }}</emulator>
+      {% endif %}
+
+      {% if device_item.input is defined %}
+        <input
+          {% if device_item.input.type is defined %}
+            type='{{ device_item.input.type }}'
+          {% endif %}
+          {% if device_item.input.bus is defined %}
+            bus='{{ device_item.input.bus }}'
+          {% endif %}
+        />
+      {% endif %}
+
+      {% if device_item.graphics is defined %}
+        <graphics
+          {% if device_item.graphics.type is defined %}
+            type='{{ device_item.graphics.type }}'
+          {% endif %}
+          {% if device_item.graphics.port is defined %}
+            port='{{ device_item.graphics.port | string }}'
+          {% endif %}
+          {% if device_item.graphics.autoport is defined %}
+            autoport='{{ device_item.graphics.autoport | string }}'
+          {% endif %}
+        >
+        {% if device_item.graphics.listen is defined %}
+          <listen
+            {% if device_item.graphics.listen.type is defined %}
+              type='{{ device_item.graphics.listen.type }}'
+            {% endif %}
+          />
+        {% endif %}
+        </graphics>
+      {% endif %}
+
+
+      {% if device_item.video is defined %}
+        <video>
+        {% if device_item.video.model is defined %}
+          <model
+            {% if device_item.video.model.type is defined %}
+              type='{{ device_item.video.model.type }}'
+            {% endif %}
+            {% if device_item.video.model.vram is defined %}
+              vram='{{ device_item.video.model.vram }}'
+            {% endif %}
+            {% if device_item.video.model.heads is defined %}
+              heads='{{ device_item.video.model.heads }}'
+            {% endif %}
+            {% if device_item.video.model.primary is defined %}
+              primary='{{ device_item.video.model.primary }}'
+            {% endif %}
+          />
+        {% endif %}
+        {% if device_item.video.address is defined %}
+          <address
+            {% if device_item.video.address.type is defined %}
+              type='{{ device_item.video.address.type }}'
+            {% endif %}
+            {% if device_item.video.address.domain is defined %}
+              domain='{{ device_item.video.address.domain | string }}'
+            {% endif %}
+            {% if device_item.video.address.bus is defined %}
+              bus='{{ device_item.video.address.bus | string }}'
+            {% endif %}
+            {% if device_item.video.address.slot is defined %}
+              slot='{{ device_item.video.address.slot | string }}'
+            {% endif %}
+            {% if device_item.video.address.function is defined %}
+              function='{{ device_item.video.address.function | string }}'
+            {% endif %}
+          />
+        {% endif %}
+        </video>
+      {% endif %}
+
+      {% if device_item.memballoon is defined %}
+        <memballoon
+          {% if device_item.memballoon.model is defined %}
+            model='{{ device_item.memballoon.model }}'
+          {% endif %}
+        >
+        {% if device_item.memballoon.address is defined %}
+          <address
+            {% if device_item.memballoon.address.type is defined %}
+              type='{{ device_item.memballoon.address.type }}'
+            {% endif %}
+            {% if device_item.memballoon.address.domain is defined %}
+              domain='{{ device_item.memballoon.address.domain | string }}'
+            {% endif %}
+            {% if device_item.memballoon.address.bus is defined %}
+              bus='{{ device_item.memballoon.address.bus | string }}'
+            {% endif %}
+            {% if device_item.memballoon.address.slot is defined %}
+              slot='{{ device_item.memballoon.address.slot | string }}'
+            {% endif %}
+            {% if device_item.memballoon.address.function is defined %}
+              function='{{ device_item.memballoon.address.function | string }}'
+            {% endif %}
+          />
+        {% endif %}
+        </memballoon>
+      {% endif %}
+
+      {% if device_item.serial is defined %}
+        <serial
+          {% if device_item.serial.type is defined %}
+            model='{{ device_item.serial.type }}'
+          {% endif %}
+        >
+        {% if device_item.serial.target is defined %}
+          <target
+            {% if device_item.serial.target.type is defined %}
+              type='{{ device_item.serial.target.type }}'
+            {% endif %}
+            {% if device_item.serial.target.port is defined %}
+              port='{{ device_item.serial.target.port | string }}'
+            {% endif %}
+          {% if device_item.serial.target.model is defined %}
+            >
+          {% else %}
+            />
+          {% endif %}
+          {% if device_item.serial.target.model is defined %}
+            <model
+              {% if device_item.serial.target.model.name is defined %}
+                name='{{ device_item.serial.target.model.name }}'
+              {% endif %}
+            />
+          {% endif %}
+          {% if device_item.serial.target.model is defined %}
+            </target>
+          {% endif %}
+        {% endif %}
+        </serial>
+      {% endif %}
+
+      {% if device_item.console is defined %}
+        <console
+          {% if device_item.console.type is defined %}
+            model='{{ device_item.console.type }}'
+          {% endif %}
+        >
+        {% if device_item.console.target is defined %}
+          <target
+            {% if device_item.console.target.type is defined %}
+              type='{{ device_item.console.target.type }}'
+            {% endif %}
+            {% if device_item.console.target.port is defined %}
+              port='{{ device_item.console.target.port | string }}'
+            {% endif %}
+          {% if device_item.console.target.model is defined %}
+            >
+          {% else %}
+            />
+          {% endif %}
+          {% if device_item.console.target.model is defined %}
+            <model
+              {% if device_item.console.target.model.name is defined %}
+                name='{{ device_item.console.target.model.name }}'
+              {% endif %}
+            />
+          {% endif %}
+          {% if device_item.console.target.model is defined %}
+            </target>
+          {% endif %}
+        {% endif %}
+        </console>
+      {% endif %}
+
+      {% if device_item.controller is defined %}
+        <controller
+          {% if device_item.controller.type is defined %}
+            type='{{ device_item.controller.type }}'
+          {% endif %}
+          {% if device_item.controller.index is defined %}
+            index='{{ device_item.controller.index | string}}'
+          {% endif %}
+          {% if device_item.controller.model is defined %}
+            model='{{ device_item.controller.model }}'
+          {% endif %}
+        {% if device_item.controller.address is defined %}
+          >
+        {% else %}
+          />
+        {% endif %}
+        {% if device_item.controller.address is defined %}
+          <address
+            {% if device_item.controller.address.type is defined %}
+              type='{{ device_item.controller.address.type }}'
+            {% endif %}
+            {% if device_item.controller.address.domain is defined %}
+              domain='{{ device_item.controller.address.domain | string }}'
+            {% endif %}
+            {% if device_item.controller.address.bus is defined %}
+              bus='{{ device_item.controller.address.bus | string }}'
+            {% endif %}
+            {% if device_item.controller.address.slot is defined %}
+              slot='{{ device_item.controller.address.slot | string }}'
+            {% endif %}
+            {% if device_item.controller.address.function is defined %}
+              function='{{ device_item.controller.address.function | string }}'
+            {% endif %}
+          />
+        {% endif %}
+        {% if device_item.controller.address is defined %}
+          </controller>
+        {% endif %}
+      {% endif %}
+
+      {% if device_item.disk is defined %}
+        <disk
+          {% if device_item.disk.type is defined %}
+            type='{{ device_item.disk.type }}'
+          {% endif %}
+          {% if device_item.disk.device is defined %}
+            device='{{ device_item.disk.device }}'
+          {% endif %}
+        >
+
+        {% if device_item.disk.source is defined %}
+          <source
+            {% if device_item.disk.source.file is defined %}
+              file='{{ device_item.disk.source.file }}'
+            {% endif %}
+            {% if device_item.disk.source.pool is defined %}
+              pool='{{ device_item.disk.source.pool }}'
+            {% endif %}
+            {% if device_item.disk.source.volume is defined %}
+              volume='{{ device_item.disk.source.volume }}'
+            {% endif %}
+          />
+        {% endif %}
+
+        {% if device_item.disk.target is defined %}
+          <target
+            {% if device_item.disk.target.dev is defined %}
+              dev='{{ device_item.disk.target.dev }}'
+            {% endif %}
+            {% if device_item.disk.target.bus is defined %}
+              bus='{{ device_item.disk.target.bus }}'
+            {% endif %}
+          />
+        {% endif %}
+
+        {% if device_item.disk.readonly is defined %}
+          <readonly/>
+        {% endif %}
+
+        {% if device_item.disk.address is defined %}
+          <address
+            {% if device_item.disk.address.type is defined %}
+              type='{{ device_item.disk.address.type }}'
+            {% endif %}
+            {% if device_item.disk.address.controller is defined %}
+              controller='{{ device_item.disk.address.controller | string }}'
+            {% endif %}
+            {% if device_item.disk.address.bus is defined %}
+              bus='{{ device_item.disk.address.bus | string }}'
+            {% endif %}
+            {% if device_item.disk.address.target is defined %}
+              target='{{ device_item.disk.address.target | string }}'
+            {% endif %}
+            {% if device_item.disk.address.unit is defined %}
+              unit='{{ device_item.disk.address.unit | string }}'
+            {% endif %}
+            {% if device_item.disk.address.domain is defined %}
+              domain='{{ device_item.disk.address.domain | string }}'
+            {% endif %}
+            {% if device_item.disk.address.slot is defined %}
+              slot='{{ device_item.disk.address.slot | string }}'
+            {% endif %}
+            {% if device_item.disk.address.function is defined %}
+              function='{{ device_item.disk.address.function | string }}'
+            {% endif %}
+          />
+        {% endif %}
+        </disk>
+      {% endif %}
+    {% endfor %}
+    {% endif %}
+    </devices>
+  {% endif %}
+</domain>
+
