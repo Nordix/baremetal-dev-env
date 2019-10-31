@@ -15,7 +15,6 @@
 #     xml: <xml file path: this field is mutually exclusive with yaml field>
 #     yaml:
 
-
 - name: Validate input
   assert:
     that:

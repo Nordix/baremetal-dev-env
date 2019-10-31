@@ -58,38 +58,38 @@
 
 - name: generate domain net devices
   set_fact:
-    gen_net_devices: "{{ gen_net_devices | default([]) + [ single_dom_net_dev] }}"
+    dom_net_devices: "{{ dom_net_devices | default([]) + [ single_dom_net_dev ] }}"
   vars:
     single_dom_net_dev:
-      interface:
-        type: network
-        source:
-          network: "{{ dom_net_dev_item.name }}"
-          bridge: "{{ dom_net_dev_item.name }}"
-        # mac:
-        #   address: "{{ node_info[node_index | int]. }}"
-        target:
-          dev: "vnet{{ (dom_net_dev_index | int) + 1 }}"
-        model:
-          type: virtio
-        alias:
-          name: "net{{ (dom_net_dev_index | int) + 1 }}"
-        address:
-          type: pci
-          domain: '0x0000'
-          bus: '0x00'
-          function: '0x0'
-          slot: "0x{{ '%02X' % (10 + (dom_net_dev_index | int)) }}"
-  loop: "{{ nodes_args.networks }}"
+      vm_index: "{{ dom_net_dev_item[0] }}"
+      spec:
+        interface:
+          type: network
+          source:
+            network: "{{ nodes_args.networks[dom_net_dev_item[1] | int].name }}"
+            bridge: "{{ nodes_args.networks[dom_net_dev_item[1] | int].name }}"
+          mac:
+            address: "{{
+              node_info[dom_net_dev_item[0] | int].mac_addresses[dom_net_dev_item[1]
+              | int] }}"
+          target:
+            dev: "vnet{{ (dom_net_dev_item[1] | int) + 10 }}"
+          model:
+            type: virtio
+          alias:
+            name: "net{{ (dom_net_dev_item[1] | int) + 10 }}"
+          address:
+            type: pci
+            domain: '0x0000'
+            bus: '0x00'
+            function: '0x0'
+            slot: "0x{{ '%02X' % (10 + (dom_net_dev_item[1] | int)) }}"
+  loop: "{{ range(0, (nodes_args.node_count | int), 1)
+    | list
+    | product(range(0, (nodes_args.networks | length), 1) | list) | list }}"
   loop_control:
     loop_var: dom_net_dev_item
     index_var: dom_net_dev_index
-
-# - name: generate net devices for all nodes
-#   set_fact:
-#     dom_net_devices: "{{ dom_net_devices | default([]) + [ single_dom_net_dev] }}"
-#   vars:
-#     single_dom_net_dev: "{{ }}"
 
 - name: Generate domain args
   set_fact:
@@ -254,7 +254,11 @@
         on_poweroff: destroy
         on_reboot: restart
         on_crash: restart
-        devices: "{{ dom_dev_specs[node_index | int] + dom_net_devices }}"
+        devices: "{{ dom_dev_specs[node_index | int]
+          + (dom_net_devices
+              | selectattr('vm_index', 'equalto', node_index | string)
+              | list | map(attribute='spec')  | list)
+          | list }}"
   loop: "{{ range(0, (nodes_args.node_count | int), 1) | list }}"
   loop_control:
     loop_var: node_index
