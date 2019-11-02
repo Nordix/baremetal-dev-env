@@ -403,6 +403,18 @@
           {% endif %}
         >
 
+        {% if device_item.disk.driver is defined %}
+          <driver
+            {% if device_item.disk.driver.name is defined %}
+              name='{{ device_item.disk.driver.name }}'
+            {% endif %}
+            {% if device_item.disk.driver.type is defined %}
+              type='{{ device_item.disk.driver.type }}'
+            {% endif %}
+          />
+        {% endif %}
+
+
         {% if device_item.disk.source is defined %}
           <source
             {% if device_item.disk.source.file is defined %}

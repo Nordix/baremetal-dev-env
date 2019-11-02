@@ -29,7 +29,7 @@
   when: vol_args.recreate | default(false) and vol_info.rc == 0
 
 - name: check if vol still exists
-  command: "virsh vol-info {{ vol_args.name }}"
+  command: "virsh vol-info {{ vol_args.name }} {{ vol_args.pool }}"
   register: vol_info
   failed_when: false
 
@@ -38,8 +38,9 @@
     virsh vol-create-as \
     {{ vol_args.pool }} \
     {{ vol_args.name }} \
-    {{ vol_args.capacity }} \
+    {{ vol_args.capacity }}GB \
     --format {{ vol_args.format | default('qcow2') }}
+  #  {{ '--prealloc-metadata' if vol_args.format is qcow2 else '' }}
   register: vol_create
   when: vol_info.rc != 0
 

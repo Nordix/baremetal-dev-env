@@ -1,0 +1,37 @@
+- name: Setup Infra
+  hosts: localhost
+  tasks:
+  - include_role:
+      name: "infra/setup"
+    vars:
+      setup_action: 'create'
+      setup_args:
+        pool_name: default
+        pool_path: "/var/lib/libvirt/images"
+        node_count: 3
+        node_memory: 2
+        node_vcpu_count: 1
+        node_name_prefix: "bm_node_"
+        pool_name: default
+        node_vol_size: 50
+
+  - name: start sushy emulator
+    vars:
+      SUSHY_PORT: "{{ REDFISH_PORT | default('8001') }}"
+      SUSHY_IP: "{{ REDFISH_PORT | default('0.0.0.0') }}"
+    docker_container:
+      restart: yes
+      state: started
+      network_mode: host
+      privileged: yes
+      detach: yes
+      name: sushy-tools
+      image: quay.io/metal3-io/sushy-tools
+      command: 'sushy-emulator -i {{ SUSHY_IP }} -p {{ SUSHY_PORT }}'
+      devices: "/dev/kvm:/dev/kvm"
+      volumes:
+        - /dev/kvm:/dev/kvm
+        - /var/run/libvirt/libvirt-sock-ro:/var/run/libvirt/libvirt-sock-ro
+        - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
+      env:
+        FLASK_ENV: development
