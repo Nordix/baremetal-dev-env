@@ -1,0 +1,27 @@
+# Description:
+#   Restart domain.
+#
+# Inputs:
+#   domain_action: "restart"
+#   domain_args:
+#     name: <name of domain>
+
+- name: Validate input
+  assert:
+    that:
+      - "domain_args is defined"
+      - "domain_args.name is defined"
+
+- name: check if domain is active
+  shell: "virsh dominfo {{ domain_args.name }} | grep -i state | grep -i 'running'"
+  register: dom_active
+  failed_when: false
+
+- name: Stop domain
+  command: "virsh destroy {{ domain_args.name }}"
+  register: dom_destroy
+  when: dom_active.rc == 0
+
+- name: Start domain
+  command: "virsh start {{ domain_args.name }}"
+  register: dom_start

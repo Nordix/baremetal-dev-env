@@ -1,0 +1,68 @@
+# Description:
+#   Replace volume for disk attached to domain.
+#   The source image is copied to pool directory
+#   so the original image it can be reused again later.
+#
+# Inputs:
+#   domain_action: "set_disk_image"
+#   domain_args:
+#     name: <name of domain>
+#     image_path: <path of qcow2 image>
+
+- name: Validate input
+  assert:
+    that:
+      - "domain_args is defined"
+      - "domain_args.name is defined"
+      - "domain_args.image_path is defined"
+
+- name: Set XML path
+  set_fact:
+    dom_xml: "/tmp/dom_{{ domain_args.name }}.xml"
+
+- name: get pool name
+  shell: >-
+    virsh dumpxml bm_node_0
+    | xq -r '.domain.devices.disk
+             | map(select((."@device" == "disk")))[0].source."@pool"'
+  register: pool_name_cmd
+
+- name: get pool name
+  shell: >-
+    virsh dumpxml bm_node_0
+    | xq -r '.domain.devices.disk
+             | map(select((."@device" == "disk")))[0].source."@volume"'
+  register: vol_name_cmd
+
+- name: get pool path
+  shell: >-
+    virsh pool-dumpxml {{ pool_name_cmd.stdout }}
+    | xq -r '.pool.target.path'
+  register: pool_path_cmd
+
+- name: get volume file path
+  set_fact:
+    dom_vol_file_path: "{{ pool_path_cmd.stdout }}/{{ vol_name_cmd.stdout }}"
+
+- debug: var=dom_vol_file_path
+
+- name: check if domain is active
+  shell: "virsh dominfo {{ domain_args.name }} | grep -i state | grep -i 'running'"
+  register: dom_active
+  failed_when: false
+
+- name: Stop domain
+  command: "virsh destroy {{ domain_args.name }}"
+  register: dom_destroy
+  when: dom_active.rc == 0
+
+- name: copy image to volume path
+  copy:
+    src: "{{ domain_args.image_path }}"
+    dest: "{{ dom_vol_file_path }}"
+    force: true
+  become: yes
+
+- name: Start domain
+  command: "virsh start {{ domain_args.name }}"
+  register: dom_start

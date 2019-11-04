@@ -1,0 +1,46 @@
+# Description:
+#   Set boot device for a domain
+#
+# Inputs:
+#   domain_action: "set_boot_device"
+#   domain_args:
+#     name: <name of domain>
+#     boot_device: [device name to boot from. options["fd", "hd", "cdrom", "network"]]
+
+- name: Validate input
+  assert:
+    that:
+      - "domain_args is defined"
+      - "domain_args.name is defined"
+      - "domain_args.boot_device is defined"
+      - "domain_args.boot_device is in ['fd', 'hd', 'cdrom', 'network']"
+
+- name: Set XML path
+  set_fact:
+    dom_xml: "/tmp/dom_{{ domain_args.name }}.xml"
+
+
+- name: generate new xml
+  shell: >-
+    virsh dumpxml {{ domain_args.name }}
+    | xq '.domain.os += {"boot": {"@dev":"{{ domain_args.boot_device }}"}}
+          | .domain.devices.disk = (.domain.devices.disk | map(del(.boot)))
+          ' --xml-output > {{ dom_xml }}
+
+- name: check if domain is active
+  shell: "virsh dominfo {{ domain_args.name }} | grep -i state | grep -i 'running'"
+  register: dom_active
+  failed_when: false
+
+- name: Stop domain
+  command: "virsh destroy {{ domain_args.name }}"
+  register: dom_destroy
+  when: dom_active.rc == 0
+
+- name: Redefine domain
+  command: "virsh define {{ dom_xml }}"
+  register: dom_redefine
+
+- name: Start domain
+  command: "virsh start {{ domain_args.name }}"
+  register: dom_start
