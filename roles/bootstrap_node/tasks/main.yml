@@ -1,0 +1,1 @@
+- include_tasks: "{{ bootstrap_node_action }}.yml"

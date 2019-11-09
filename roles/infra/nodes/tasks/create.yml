@@ -104,7 +104,7 @@
             name: qemu
             type: raw
           source:
-            file: "/var/lib/libvirt/images/Porteus-MATE-v4-0-x86_64-iso-4a58b21f-1194-46b4-ac8a-d952b058402b.img"
+            file: ""
           target:
             dev: hdc
             bus: ide

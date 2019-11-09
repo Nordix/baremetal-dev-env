@@ -1,0 +1,35 @@
+# Description:
+#   Returns list of uuid for given domains.
+#
+# Inputs:
+#   domain_action: "get_uuid"
+#   domain_args:
+#     domains: [list of domains]
+# Return:
+#   Returns dom_uuids variable which
+#   is a list of uuids for corresponding domain
+#   list.
+
+- name: Validate input
+  assert:
+    that:
+      - "domain_args is defined"
+      - "domain_args.domains is defined"
+      - "domain_args.domains | list"
+
+- name: Initialize output
+  set_fact:
+    dom_uuids: []
+
+- name: Get UUIDs for all domains
+  shell: "virsh domuuid {{ single_dom_name }}"
+  register: dom_uuids_cmd
+  loop: "{{ domain_args.domains }}"
+  loop_control:
+    loop_var: single_dom_name
+
+- name: Fill output list
+  set_fact:
+    dom_uuids: "{{ dom_uuids_cmd.results | map(attribute='stdout') | list }}"
+
+- debug: var=dom_uuids

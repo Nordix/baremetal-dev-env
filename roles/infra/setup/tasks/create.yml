@@ -29,6 +29,43 @@
   set_fact:
     prov_net_name: bm_prov_net
     bm_net_name: bm_net_0
+
+- include_role:
+    name: "infra/node_info"
+  vars:
+    node_info_args:
+      node_count: "{{ setup_args.node_count }}"
+      node_name_prefix: "{{ setup_args.node_name_prefix }}"
+      networks:
+        - name: "{{ prov_net_name }}"
+        - name: "{{ bm_net_name }}"
+
+- name: Get bm_net_1 hosts
+  set_fact:
+    bm_net_1_hosts: "{{ (bm_net_1_hosts | default([])) + [single_bm_net_1_host] }}"
+  vars:
+    single_bm_net_1_host:
+      host:
+        mac: "{{ single_vm_info.mac_addresses[1] }}"
+        ip: "{{ single_vm_info.ip_addresses[1] }}"
+  loop: "{{ node_info }}"
+  loop_control:
+    loop_var: single_vm_info
+
+- name: generate bm_net_0 ip config
+  set_fact:
+    bm_net_0_ip_cfg:
+      address: "{{ node_info[1].gateway_addresses[1] }}"
+      netmask: "255.255.255.0"
+      dhcp: >-
+        {{
+          [{'range': {'start': node_info[1].dhcp_start_addresses[1],
+                      'end': node_info[1].dhcp_end_addresses[1]} }]
+          + bm_net_1_hosts
+        }}
+
+- debug: var=bm_net_0_ip_cfg
+
 - name: Generate required network details
   set_fact:
     req_infra_networks:
@@ -75,13 +112,7 @@
             - forwarder:
                 domain: 'services.tests.baremetal.net'
                 addr: '127.0.0.1'
-          ip:
-            address: "192.168.111.1"
-            netmask: "255.255.255.0"
-            dhcp:
-              - range:
-                  start:  '192.168.111.20'
-                  end: '192.168.111.100'
+          ip: "{{ bm_net_0_ip_cfg }}"
 
 - name: Merge network details
   set_fact:
@@ -114,10 +145,10 @@
   vars:
     nodes_action: 'create'
     nodes_args:
-      node_count: "{{ setup_args.node_count | default(3) }}"
-      node_memory: "{{ setup_args.node_memory | default(2) }}"
-      node_vcpu_count: "{{ setup_args.node_vcpu_count | default(2) }}"
-      node_name_prefix: "{{ setup_args.node_name_prefix | default('bm_node_') }}"
-      pool_name: "{{ setup_args.pool_name | default('default') }}"
-      node_vol_size: "{{ setup_args.node_vol_size | default(4) }}"
+      node_count: "{{ setup_args.node_count }}"
+      node_memory: "{{ setup_args.node_memory }}"
+      node_vcpu_count: "{{ setup_args.node_vcpu_count }}"
+      node_name_prefix: "{{ setup_args.node_name_prefix  }}"
+      pool_name: "{{ setup_args.pool_name }}"
+      node_vol_size: "{{ setup_args.node_vol_size }}"
       networks: "{{ dom_net_list }}"

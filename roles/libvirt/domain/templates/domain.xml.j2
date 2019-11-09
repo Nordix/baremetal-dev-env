@@ -70,6 +70,20 @@
   </features>
   {% endif %}
 
+  {% if dom_yaml.vcpu is defined %}
+    <vcpu
+      {% if dom_yaml.vcpu.placement is defined %}
+        placement='{{ dom_yaml.vcpu.placement }}'
+      {% endif %}
+    >
+    {%- if dom_yaml.vcpu.value is defined -%}
+        {{ dom_yaml.vcpu.value }}
+    {%- endif -%}
+    </vcpu>
+  {% endif %}
+
+
+
   {% if dom_yaml.cpu is defined %}
     <cpu
       {% if dom_yaml.cpu.mode is defined %}
