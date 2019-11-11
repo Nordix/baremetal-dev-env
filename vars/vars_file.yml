@@ -1,0 +1,5 @@
+user_vars:
+  common:
+    output_dir: "/tmp/bm-dev-env"
+  bootstrap:
+    force_iso_download: no

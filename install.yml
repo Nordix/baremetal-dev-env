@@ -1,24 +1,30 @@
 - name: Setup Infra
   hosts: localhost
+  vars_files:
+    - vars/defaults.yml
+    - "{{ vars_file }}"
+    - vars/vars_merge.yml
+  tags:
+    - infra
   tasks:
+  - debug: var=params
   - include_role:
       name: "infra/setup"
     vars:
       setup_action: 'create'
       setup_args:
-        pool_name: default
-        pool_path: "/var/lib/libvirt/images"
-        node_count: 3
-        node_memory: 3
-        node_vcpu_count: 2
-        node_name_prefix: "bm_node_"
-        pool_name: default
-        node_vol_size: 50
+        pool_name: "{{ params.infra.libvirt_pool_name }}"
+        pool_path: "{{ params.infra.libvirt_pool_path }}"
+        node_count: "{{ params.infra.node_count }}"
+        node_memory: "{{ params.infra.node_memory }}"
+        node_vcpu_count: "{{ params.infra.node_vcpu_count }}"
+        node_name_prefix: "{{ params.infra.node_name_prefix }}"
+        node_vol_size: "{{ params.infra.node_vol_size }}"
 
   - name: start sushy emulator
     vars:
-      SUSHY_PORT: "{{ REDFISH_PORT | default('8001') }}"
-      SUSHY_IP: "{{ REDFISH_PORT | default('0.0.0.0') }}"
+      SUSHY_PORT: "{{ params.redfish_server.port }}"
+      SUSHY_IP: "{{ params.redfish_server.ip }}"
     docker_container:
       restart: yes
       state: started
@@ -36,6 +42,15 @@
       env:
         FLASK_ENV: development
 
+- name: Start Bootstrap Cluster
+  hosts: localhost
+  tags:
+    - bootstrap
+  vars_files:
+    - vars/defaults.yml
+    - "{{ vars_file }}"
+    - vars/vars_merge.yml
+  tasks:
   - include_role:
       name: "bootstrap_node"
     vars:
@@ -43,9 +58,10 @@
       bootstrap_node_args:
         node_name: bm_node_0
         node_ip: "172.22.0.2"
-        iso_path: "http://artifactory.nordix.org/artifactory/airship/k8s_iso/bm_dev_env/k8s_bootstrap.iso"
-        iso_ssh_pub_key: "http://artifactory.nordix.org/artifactory/airship/k8s_iso/bm_dev_env/devuser_key.pub"
-        iso_ssh_priv_key: "http://artifactory.nordix.org/artifactory/airship/k8s_iso/bm_dev_env/devuser_key"
-        local_path: /tmp
-        force_download: yes
+        iso_path: "{{ params.bootstrap.iso_path }}"
+        iso_ssh_pub_key: "{{ params.bootstrap.pub_key_path }}"
+        iso_ssh_priv_key: "{{ params.bootstrap.priv_key_path }}"
+        local_path: "{{ params.common.output_dir }}"
+        force_download: "{{ params.bootstrap.force_iso_download }}"
+
 
