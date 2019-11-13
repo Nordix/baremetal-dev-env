@@ -1,3 +1,16 @@
+- name: Construct runtime vars
+  hosts: localhost
+  vars_files:
+    - vars/defaults.yml
+    - "{{ vars_file }}"
+    - vars/vars_merge.yml
+  tags:
+    - always
+  tasks:
+  - set_fact:
+      bootstrap_node_name: "bootstrap"
+      bootstrap_kubeconfig: "{{ params.common.output_dir }}/{{ params.bootstrap.kubeconfig_filename }}"
+
 - name: Setup Infra
   hosts: localhost
   vars_files:
@@ -42,6 +55,81 @@
       env:
         FLASK_ENV: development
 
+- name: Start docker registry
+  hosts: localhost
+  tags:
+    - registry
+  vars_files:
+    - vars/defaults.yml
+    - "{{ vars_file }}"
+    - vars/vars_merge.yml
+  tasks:
+
+  - name: Remove certificate directory
+    file:
+      path: "{{ params.common.output_dir }}/certs"
+      state: absent
+
+  - name: Create certificate directory
+    file:
+      path: "{{ params.common.output_dir }}/certs"
+      state: directory
+
+  - name: create certificate config file
+    copy:
+      dest: "{{ params.common.output_dir }}/certs/key.cfg"
+      content: |
+        [req]
+        distinguished_name=req
+        [san]
+        subjectAltName = @alt_names
+        [alt_names]
+        DNS.1 = localhost
+        IP.1 = 127.0.0.1
+        IP.2 = 172.22.0.1
+
+  - name: generate certificates for registry
+    shell: >-
+      openssl req \
+      -x509 \
+      -newkey rsa:4096 \
+      -sha256 \
+      -days 3560 \
+      -nodes \
+      -keyout {{ params.common.output_dir }}/certs/registry.key \
+      -out {{ params.common.output_dir }}/certs/registry.crt \
+      -subj '/CN=bm.dev.env.registry' \
+      -extensions san \
+      -config "{{ params.common.output_dir }}/certs/key.cfg"
+  - name: start docker registry container
+    docker_container:
+      restart: yes
+      state: started
+      detach: yes
+      name: bm-dev-env-registry
+      image: registry:2
+      env:
+        REGISTRY_HTTP_ADDR: "0.0.0.0:443"
+        REGISTRY_HTTP_TLS_CERTIFICATE: "/certs/registry.crt"
+        REGISTRY_HTTP_TLS_KEY: "/certs/registry.key"
+      published_ports:
+        - "{{ params.registry.port }}:443"
+      volumes:
+        - "{{ params.common.output_dir }}/registry:/var/lib/registry"
+        - "{{ params.common.output_dir }}/certs:/certs"
+
+  - name: Create host directory for docker CA cacert
+    file:
+      path: "/etc/docker/certs.d/172.22.0.1:5001"
+      state: directory
+    become: true
+
+  - name: Add registry cert to authorized CA list of docker
+    copy:
+      src: "{{ params.common.output_dir }}/certs/registry.crt"
+      dest: "/etc/docker/certs.d/172.22.0.1:5001/ca.crt"
+    become: true
+
 - name: Start Bootstrap Cluster
   hosts: localhost
   tags:
@@ -51,6 +139,16 @@
     - "{{ vars_file }}"
     - vars/vars_merge.yml
   tasks:
+
+  - name: Increase bootstrap node memory
+    include_role:
+      name: "libvirt/domain"
+    vars:
+      domain_action: "set_memory"
+      domain_args:
+        name: bm_node_0
+        memory: 10
+
   - include_role:
       name: "bootstrap_node"
     vars:
@@ -61,7 +159,120 @@
         iso_path: "{{ params.bootstrap.iso_path }}"
         iso_ssh_pub_key: "{{ params.bootstrap.pub_key_path }}"
         iso_ssh_priv_key: "{{ params.bootstrap.priv_key_path }}"
-        local_path: "{{ params.common.output_dir }}"
+        output_dir: "{{ params.common.output_dir }}"
+        kubeconfig_path: "{{ bootstrap_kubeconfig }}"
         force_download: "{{ params.bootstrap.force_iso_download }}"
+        registry_ca_path: "{{ params.common.output_dir }}/certs/registry.crt"
 
+- name: Install CAPI components
+  hosts: localhost
+  tags:
+    - capi
+  vars_files:
+    - vars/defaults.yml
+    - "{{ vars_file }}"
+    - vars/vars_merge.yml
+  tasks:
+  - set_fact:
+      capi_path: "{{ params.common.output_dir }}/capi"
+      cabpk_path: "{{ params.common.output_dir }}/cabpk"
 
+  - name: Fetch CAPI Source
+    git:
+      repo: "{{ params.capi.repo}}"
+      dest: "{{ capi_path }}"
+      version: "{{ params.capi.branch }}"
+      force: "{{ params.common.force_repo_update }}"
+
+  - name: Build and install CAPI components
+    shell: "{{ capi_build_cmd }}"
+    args:
+      chdir: "{{ capi_path }}"
+    environment:
+      KUBECONFIG: "{{ bootstrap_kubeconfig }}"
+    loop:
+      - make generate
+      - kubectl create namespace metal3 --dry-run -o yaml | kubectl apply -f -
+      - sed -i'' 's/capi-system/metal3/' config/default/kustomization.yaml
+      - kustomize build config/default | kubectl apply -f -
+    loop_control:
+      loop_var: capi_build_cmd
+
+  - name: Fetch CABPK Source
+    git:
+      repo: "{{ params.cabpk.repo}}"
+      dest: "{{ cabpk_path }}"
+      version: "{{ params.cabpk.branch }}"
+      force: "{{ params.common.force_repo_update }}"
+
+  - name: Build and install CABPK components
+    shell: "{{ cabpk_build_cmd }}"
+    args:
+      chdir: "{{ cabpk_path }}"
+    environment:
+      KUBECONFIG: "{{ bootstrap_kubeconfig }}"
+    loop:
+      - sed -i'' 's/cabpk-system/metal3/' config/default/kustomization.yaml
+      - make deploy
+    loop_control:
+      loop_var: cabpk_build_cmd
+
+- name: Install BMO components
+  hosts: localhost
+  tags:
+    - bmo
+  vars_files:
+    - vars/defaults.yml
+    - "{{ vars_file }}"
+    - vars/vars_merge.yml
+  tasks:
+  - set_fact:
+      bmo_path: "{{ params.common.output_dir }}/bmo"
+
+  - name: Fetch BMO Source
+    git:
+      repo: "{{ params.bmo.repo}}"
+      dest: "{{ bmo_path }}"
+      version: "{{ params.bmo.branch }}"
+      force: "{{ params.common.force_repo_update }}"
+
+  - name: Build and install BMO components
+    shell: "{{ bmo_build_cmd }}"
+    args:
+      chdir: "{{ bmo_path }}"
+    environment:
+      KUBECONFIG: "{{ bootstrap_kubeconfig }}"
+    loop:
+      - make deploy
+    loop_control:
+      loop_var: bmo_build_cmd
+
+- name: Install CAPBM components
+  hosts: localhost
+  tags:
+    - capbm
+  vars_files:
+    - vars/defaults.yml
+    - "{{ vars_file }}"
+    - vars/vars_merge.yml
+  tasks:
+  - set_fact:
+      capbm_path: "{{ params.common.output_dir }}/capbm"
+
+  - name: Fetch CAPBM Source
+    git:
+      repo: "{{ params.capbm.repo}}"
+      dest: "{{ capbm_path }}"
+      version: "{{ params.capbm.branch }}"
+      force: "{{ params.common.force_repo_update }}"
+
+  - name: Build and install CAPBM components
+    shell: "{{ capbm_build_cmd }}"
+    args:
+      chdir: "{{ capbm_path }}"
+    environment:
+      KUBECONFIG: "{{ bootstrap_kubeconfig }}"
+    loop:
+      - make deploy
+    loop_control:
+      loop_var: capbm_build_cmd

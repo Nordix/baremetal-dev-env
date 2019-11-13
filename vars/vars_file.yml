@@ -1,5 +1,6 @@
 user_vars:
   common:
     output_dir: "/tmp/bm-dev-env"
+    force_repo_update: yes
   bootstrap:
-    force_iso_download: no
+    force_iso_download: yes

@@ -8,7 +8,8 @@
 #     iso_path: <local or remote iso path to download>
 #     iso_ssh_pub_key: <local or remote iso ssh public key to download>
 #     iso_ssh_priv_key: <local or remote iso ssh priv key to download>
-#     local_path: <local path where iso should be downloaded>
+#     output_dir: <local path where iso should be downloaded>
+#     kubeconfig_path: <Full path for kubeconfig output file>
 #     force_download: <downloads every time even if iso already exists>
 
 - name: Validate input
@@ -20,12 +21,12 @@
       - "bootstrap_node_args.iso_path is defined"
       - "bootstrap_node_args.iso_ssh_pub_key is defined"
       - "bootstrap_node_args.iso_ssh_priv_key is defined"
-      - "bootstrap_node_args.local_path is defined"
+      - "bootstrap_node_args.output_dir is defined"
       - "bootstrap_node_args.force_download is defined"
 
 - name: Create local directory if not exist
   file:
-    path: "{{ bootstrap_node_args.local_path }}"
+    path: "{{ bootstrap_node_args.output_dir }}"
     state: directory
 
 - name: Local iso name
@@ -33,37 +34,44 @@
     local_iso_name: bootstrap.iso
     local_pubkey_name: bootstrap.pub.key
     local_privkey_name: bootstrap.priv.key
-    local_kubeconfig_name: bootstrap.kubeconfig.yml
 
 - name: Check if local path exists
   stat:
-    path: "{{ bootstrap_node_args.local_path }}/{{ local_iso_name }}"
+    path: "{{ bootstrap_node_args.output_dir }}/{{ local_iso_name }}"
   register: local_iso_stat
 
 - name: Download ISO
   get_url:
     url: "{{ bootstrap_node_args.iso_path }}"
-    dest: "{{ bootstrap_node_args.local_path }}/{{ local_iso_name }}"
+    dest: "{{ bootstrap_node_args.output_dir }}/{{ local_iso_name }}"
   become: true
   when: "bootstrap_node_args.force_download or not local_iso_stat.stat.exists"
 
 - name: Download SSH Pub Key
   get_url:
     url: "{{ bootstrap_node_args.iso_ssh_pub_key }}"
-    dest: "{{ bootstrap_node_args.local_path }}/{{ local_pubkey_name }}"
+    dest: "{{ bootstrap_node_args.output_dir }}/{{ local_pubkey_name }}"
     force: true
 
 - name: Download SSH Priv Key
   get_url:
     url: "{{ bootstrap_node_args.iso_ssh_priv_key }}"
-    dest: "{{ bootstrap_node_args.local_path }}/{{ local_privkey_name }}"
+    dest: "{{ bootstrap_node_args.output_dir }}/{{ local_privkey_name }}"
     force: true
     mode: '600'
+
+- name: Restart VM
+  include_role:
+    name: "libvirt/domain"
+  vars:
+    domain_action: 'restart'
+    domain_args:
+      name: "{{ bootstrap_node_args.node_name }}"
 
 - name: Insert ISO in CD Drive
   shell: >-
     virsh change-media {{ bootstrap_node_args.node_name }} hdc \
-      --source {{ bootstrap_node_args.local_path }}/{{ local_iso_name }} \
+      --source {{ bootstrap_node_args.output_dir }}/{{ local_iso_name }} \
       --live --config --force --update
 
 - name: Set boot device to CD
@@ -88,7 +96,7 @@
     hostname: "{{ bootstrap_node_args.node_name }}"
     ansible_ssh_host: "{{ bootstrap_node_args.node_ip }}"
     ansible_user: devuser
-    ansible_ssh_private_key_file: "{{ bootstrap_node_args.local_path }}/{{ local_privkey_name }}"
+    ansible_ssh_private_key_file: "{{ bootstrap_node_args.output_dir }}/{{ local_privkey_name }}"
     ansible_ssh_extra_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
     groups:
       - bootstrap
@@ -116,9 +124,26 @@
   become: true
   delegate_to: "{{ bootstrap_node_args.node_name }}"
 
+- block:
+  - name: Create host directory for docker CA cacert
+    file:
+      path: "/etc/docker/certs.d/172.22.0.1:5001"
+      state: directory
+    become: true
+    delegate_to: "{{ bootstrap_node_args.node_name }}"
+
+  - name: Add registry cert to authorized CA list of docker
+    copy:
+      src: "{{ bootstrap_node_args.registry_ca_path }}"
+      dest: "/etc/docker/certs.d/172.22.0.1:5001/ca.crt"
+    become: true
+    delegate_to: "{{ bootstrap_node_args.node_name }}"
+
+  when: "bootstrap_node_args.registry_ca_path is defined"
+
 - name: remove any old bootstrap Kubeconfig
   file:
-    path: "{{ bootstrap_node_args.local_path }}/{{ local_kubeconfig_name }}"
+    path: "{{ bootstrap_node_args.kubeconfig_path }}"
     state: absent
   become: true
 
@@ -126,13 +151,13 @@
   fetch:
     flat: yes
     src: /etc/kubernetes/admin.conf
-    dest: "{{ bootstrap_node_args.local_path }}/{{ local_kubeconfig_name }}"
+    dest: "{{ bootstrap_node_args.kubeconfig_path }}"
   become: true
   delegate_to: "{{ bootstrap_node_args.node_name }}"
 
 - name: Set permissions for kubeconfig
   file:
-    path: "{{ bootstrap_node_args.local_path }}/{{ local_kubeconfig_name }}"
+    path: "{{ bootstrap_node_args.kubeconfig_path }}"
     mode: '644'
     owner: "{{ lookup('env','USER') }}"
   become: true
@@ -140,7 +165,7 @@
 - name: Wait for kubernetes connection to be up
   command: "kubectl get nodes"
   environment:
-    KUBECONFIG: "{{ bootstrap_node_args.local_path }}/{{ local_kubeconfig_name }}"
+    KUBECONFIG: "{{ bootstrap_node_args.kubeconfig_path }}"
   retries: 150
   delay: 3
   register: kubectl_test
@@ -149,7 +174,7 @@
 - name: check if bootstrap k8s node is in ready state
   shell: "kubectl get nodes  | grep Ready | wc -l"
   environment:
-    KUBECONFIG: "{{ bootstrap_node_args.local_path }}/{{ local_kubeconfig_name }}"
+    KUBECONFIG: "{{ bootstrap_node_args.kubeconfig_path }}"
   register: bootstrap_k8s_ready_nodes
 
 - assert:

@@ -1,0 +1,32 @@
+# Description:
+#   Set memory for a domain.
+#
+# Inputs:
+#   domain_action: "restart"
+#   domain_args:
+#     name: <name of domain>
+#     memory: <memory in GBs>
+
+- name: Validate input
+  assert:
+    that:
+      - "domain_args is defined"
+      - "domain_args.name is defined"
+      - "domain_args.memory is defined"
+
+- name: check if domain is active
+  shell: "virsh dominfo {{ domain_args.name }} | grep -i state | grep -i 'running'"
+  register: dom_active
+  failed_when: false
+
+- name: Start domain
+  command: "virsh destroy {{ domain_args.name }}"
+  when: "dom_active.rc == 0"
+
+- name: Set domain max memory
+  command: "virsh setmaxmem {{ domain_args.name }} {{ domain_args.memory }}G --config"
+
+- name: Set domain memory
+  command: "virsh setmem {{ domain_args.name }} {{ domain_args.memory }}G --config"
+
+

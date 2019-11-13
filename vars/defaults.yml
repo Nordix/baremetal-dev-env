@@ -3,10 +3,11 @@ vars_file: "vars/vars_file.yml"
 defaults:
   common:
     output_dir: "/tmp"
+    force_repo_update: false
 
   infra:
     node_count: 3
-    node_memory: 3
+    node_memory: 5
     node_vcpu_count: 2
     node_vol_size: 50
     node_name_prefix: "bm_node_"
@@ -17,16 +18,29 @@ defaults:
     ip: "0.0.0.0"
     port: 8001
 
+  registry:
+    port: 5001
+
   bootstrap:
     iso_path: "http://artifactory.nordix.org/artifactory/airship/k8s_iso/bm_dev_env/k8s_bootstrap.iso"
     pub_key_path: "http://artifactory.nordix.org/artifactory/airship/k8s_iso/bm_dev_env/devuser_key.pub"
     priv_key_path: "http://artifactory.nordix.org/artifactory/airship/k8s_iso/bm_dev_env/devuser_key"
+    kubeconfig_filename: "bootstrap.kubeconfig.yml"
     force_iso_download: yes
 
   capi:
-    capirepo: "https://github.com/kubernetes-sigs/cluster-api.git"
-    capibranch: "master"
-    cabpkrepo: "https://github.com/kubernetes-sigs/cluster-api-bootstrap-provider-kubeadm.git"
-    cabpkbranch: "master"
+    repo: "https://github.com/kubernetes-sigs/cluster-api.git"
+    branch: "master"
 
+  cabpk:
+    repo: "https://github.com/kubernetes-sigs/cluster-api-bootstrap-provider-kubeadm.git"
+    branch: "master"
+
+  bmo:
+    repo: "https://github.com/metal3-io/baremetal-operator.git"
+    branch: "master"
+
+  capbm:
+    repo: "https://github.com/metal3-io/cluster-api-provider-baremetal.git"
+    branch: "v1alpha2"
 
